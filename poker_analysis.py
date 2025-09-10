@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import re
 from collections import defaultdict
@@ -82,6 +83,7 @@ class PokerVPIPAnalyzer:
         """Extract the hand type from a winning entry."""
         # Look for patterns like "collected X from pot with [hand type]"
         patterns = [
+            r'with (Royal Flush)',
             r'with (Straight Flush)',
             r'with (Four of a Kind|four of a kind [^(]+)',
             r'with (Full House|full house [^(]+)',
@@ -145,9 +147,16 @@ class PokerVPIPAnalyzer:
                 from_amount = float(stack_update_match.group(2))
                 to_amount = float(stack_update_match.group(3))
                 # Only count as admin adjustment if stack increased (positive adjustment)
+                # If stack decreased, count as negative adjustment
                 if to_amount > from_amount:
                     adjustment = to_amount - from_amount
                     self.player_stats[player]['admin_adjustments'] += adjustment
+                    self.player_stats[player]['buy_ins'] += adjustment
+                elif to_amount < from_amount:
+                    adjustment = from_amount - to_amount
+                    self.player_stats[player]['admin_adjustments'] -= adjustment
+                    self.player_stats[player]['buy_ins'] -= adjustment
+                # Update the actual buyin amount
                 continue
                 
             # Look for admin stack resets
@@ -439,17 +448,17 @@ class PokerVPIPAnalyzer:
         self.print_report()
         return self.generate_report()
 
-# Example usage
-if __name__ == "__main__":
-    # Replace with your CSV file path
-    csv_file_path = "poker_now_log_2025_07_30.csv"
-    
+# Run the script by running the command: python poker_analysis.py --file <csv_file_path>
+# Example: python poker_analysis.py --file poker_now_log_2025_07_30.csv
+
+def main():
+    parser = argparse.ArgumentParser(description='Poker analysis script')
+    parser.add_argument('--file', type=str, required=True, help='Path to the CSV file')
+    args = parser.parse_args()
+    csv_file_path = args.file
     analyzer = PokerVPIPAnalyzer(csv_file_path)
-    results = analyzer.run_analysis()
     
-    # You can also access individual player stats
-    # print(f"\nDetailed stats for a specific player:")
-    # player_name = "Connor Dwu @ V-6-EqmFez"  # Replace with actual player name
-    # if player_name in results:
-    #     stats = results[player_name]
-    #     print(f"{player_name}: VPIP = {stats['vpip_percentage']}%, Net Profit = ${stats['actual_profit']}")
+    analyzer.run_analysis() 
+
+if __name__ == "__main__":
+    main()
